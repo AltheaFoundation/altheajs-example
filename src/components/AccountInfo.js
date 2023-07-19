@@ -1,7 +1,7 @@
 import getAccountInfo from '../services/accountInfo';
 import { useEffect, useState } from 'react';
 
-const acc = "althea14jjatu7u3h07sgyfqv2r2z79qlmy5lrw27asjm"
+const acc = "althea1ka5ep6vh8493smdn932afclda9hldcpm2wqhqw"
 
 // Presents info about an account, which receives input from a text box and queries when an Update button is clicked
 export default function AccountInfo() {
@@ -18,12 +18,19 @@ export default function AccountInfo() {
       fetchAccountInfo(input);
       setInitialized(true);
     }
-  })
+  }, [initialized])
 
   const fetchAccountInfo = (address) => {
     const data = getAccountInfo(address).then((data) => {
       if (data.account) {
-        const base_account = data.account?.base_account
+        const type = data.account['@type'];
+        let base_account;
+        if (type.includes("EthAccount")) { // An EthAccount was returned
+          base_account = data.account?.base_account
+        } else if (type.includes("BaseAccount")) { // A regular Cosmos account was returned
+          base_account = data.account
+        }
+
         const accInf = {
           address: base_account.address,
           pub_key: base_account.pub_key,
@@ -46,7 +53,7 @@ export default function AccountInfo() {
     {account ? (
     <div className="AccountInfo">
         <p>Account: {account.address}</p>
-        {account.pub_key ? <p>pub_key: {account.address}</p> : null}
+        {account.pub_key ? <p>pub_key: {account.pub_key.key}</p> : null}
         <p>Account Number: {account.account_number}</p>
         <p>Sequence: {account.sequence}</p>
     </div>

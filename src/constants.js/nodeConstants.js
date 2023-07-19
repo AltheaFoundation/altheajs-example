@@ -1,0 +1,1 @@
+export const nodeurl = "https://althea.zone:1317";
