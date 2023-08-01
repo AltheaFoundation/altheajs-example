@@ -69,11 +69,6 @@ export async function SignEIP712CosmosTx(context, tx) {
         params: [senderHexAddress, eip712Payload],
     })
 
-    // Create a signed Tx payload that can be broadcast to a node.
-    const signatureBytes = Buffer.from(signature.replace('0x', ''), 'hex')
-
-    const { signDirect } = tx
-
     const extension = signatureToWeb3Extension(chain, sender, signature);
     const signedTx = createTxRawEIP712(
         tx.legacyAmino.body,
