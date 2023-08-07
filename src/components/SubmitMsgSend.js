@@ -1,13 +1,19 @@
 import {
+    createCosmosMsgSend,
+  createCosmosPayload,
   createTxMsgSend,
+  wrapTypeToArray,
 } from '@althea-net/transactions'
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { connectMetamask, metamaskInstalled, verifyPubKey, GetCurrPubkey, GetCurrAccount, SignEIP712CosmosTx } from '../services/metamask';
 import { BroadcastEIP712Tx } from '../services/broadcast';
 import getAccountInfo, { altheaToEth, ethToAlthea } from '../services/accountInfo';
+import { JSONOptions, convertProtoMessagesToAmino, createMicrotxAminoConverters } from '@althea-net/proto';
+import { MsgSend } from '@althea-net/proto/dist/proto/cosmos/bank/tx';
+import { AminoJSONOptions, convertProtoValueToMessage } from '@althea-net/proto/dist/amino';
 
 // Presents info about the user's metamask account and allows Bank MsgSend EIP-712 submission. Currently the transaction confirmation is only output to console!
-export default function SubmitTx() {
+export default function SubmitMsgSend() {
     const [mmConnected, setMmConnected] = useState(false) // Is metamask enabled and have the accounts been fetched?
     const [chainId, setChainId] = useState(defaultChain.chainId) // 417834 OR user input to Chain ID field
     const [cosmosChainId, setCosmosChainId] = useState(defaultChain.cosmosChainId) // althea_417834-3 OR user input to Cosmos Chain ID field
@@ -33,9 +39,7 @@ export default function SubmitTx() {
         connectMetamask().then(() => {
             setMmConnected(true);
             const ethAccount = GetCurrAccount();
-            console.log("Eth account", ethAccount);
             const account = ethToAlthea(ethAccount);
-            console.log("Althea account", account);
             setAccount(account)
             fetchAccountInfo(account)
         });
@@ -50,7 +54,6 @@ export default function SubmitTx() {
         console.log("Fetching account info for", address)
         const data = getAccountInfo(address).then((data) => {
             if (data.account) {
-                console.log("Got data", JSON.stringify(data))
                 const type = data.account['@type'];
                 let base_account;
                 if (type.includes("EthAccount")) { // An EthAccount was returned
@@ -127,14 +130,12 @@ const defaultChain = {
 }
 
 function createEIP712Params(account, sequence, accountNumber, pubKey, feeAmount, gasAmount, chain, cosmosChainId, memo, to, amount) {
-    console.log("Creating EIP712 Params:", account, sequence, accountNumber, pubKey, feeAmount, gasAmount, chain, memo, to, amount);
     const sender = {
         accountAddress: account,
         sequence: sequence,
         accountNumber: accountNumber,
         pubkey: pubKey,
     };
-
     const fAmount = (feeAmount || defaultFee.amount);
     const gAmount = (gasAmount || defaultFee.gas);
 
@@ -152,8 +153,6 @@ function createEIP712Params(account, sequence, accountNumber, pubKey, feeAmount,
         amount: amount,
         denom: 'aalthea',
     }
-
-    const tx = createTxMsgSend(txcontext, params);
-
+    const tx = createTxMsgSend(txcontext, params)
     return {context: txcontext, tx: tx}
 }

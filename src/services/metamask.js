@@ -1,11 +1,12 @@
-import { createTxRaw } from '@althea-net/proto'
+import { bytesToTxBody } from '@althea-net/proto'
 import { hashMessage } from '@ethersproject/hash'
 import {
   computePublicKey,
   recoverPublicKey,
 } from '@ethersproject/signing-key'
 import { altheaToEth } from './accountInfo';
-import { signatureToWeb3Extension, createTxRawEIP712 } from '@althea-net/transactions';
+import { signatureToWeb3Extension } from '@althea-net/transactions';
+import { createTxRaw, createAnyMessage } from '@althea-net/proto';
 
 let mmAccounts;
 let currPubkey;
@@ -58,25 +59,24 @@ export function GetCurrAccount() {
 export async function SignEIP712CosmosTx(context, tx) {
     const { sender, chain } = context
 
-    // Initialize MetaMask and sign the EIP-712 payload.
-    await window.ethereum.enable()
-
     const senderHexAddress = altheaToEth(sender.accountAddress)
     const eip712Payload = JSON.stringify(tx.eipToSign)
 
-    const signature = await window.ethereum.request({
+    const mmArgs = {
         method: 'eth_signTypedData_v4',
         params: [senderHexAddress, eip712Payload],
-    })
-
+    }
+    const signature = await window.ethereum.request(mmArgs)
     const extension = signatureToWeb3Extension(chain, sender, signature);
-    const signedTx = createTxRawEIP712(
-        tx.legacyAmino.body,
-        tx.legacyAmino.authInfo,
-        extension
-    );
 
-    console.log("Got signed txRaw", signedTx)
+    const { legacyAmino } = tx
+    legacyAmino.body.extensionOptions.push(createAnyMessage(extension))
+
+    const bodyBytes = legacyAmino.body.toBinary()
+    const authInfoBytes = legacyAmino.authInfo.toBinary()
+
+    const signedTx = createTxRaw(bodyBytes, authInfoBytes, [new Uint8Array()])
+    const body = bytesToTxBody(bodyBytes)
 
     return signedTx
 }
