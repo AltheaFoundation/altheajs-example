@@ -1,26 +1,37 @@
-import { createTxMsgLiquify } from '@althea-net/transactions';
+import {
+    createTxMsgSendToEth,
+    createEIP712MsgSendToEth,
+} from '@gravity-bridge/transactions'
 import React, { useState } from 'react';
 import { connectMetamask, metamaskInstalled, verifyPubKey, GetCurrPubkey, GetCurrAccount, SignEIP712CosmosTx } from '../services/metamask';
 import { BroadcastEIP712Tx } from '../services/broadcast';
 import getAccountInfo from '../services/accountInfo';
-import { altheaToEth, ethToAlthea } from '@althea-net/address-converter';
+import { gravityToEth, ethToGravity } from '@gravity-bridge/address-converter';
 
-// Presents info about the user's metamask account and allows Microtx MsgLiquify EIP-712 submission. Currently the transaction confirmation is only output to console!
-export default function SubmitMsgLiquify() {
+const gravityNode = "http://localhost:1317"
+
+// Presents info about the user's metamask account and allows gravity MsgSendToEth EIP-712 submission. Currently the transaction confirmation is only output to console!
+export default function GravityMsgSendToEth() {
     const [mmConnected, setMmConnected] = useState(false) // Is metamask enabled and have the accounts been fetched?
-    const [chainId, setChainId] = useState(defaultChain.chainId) // 417834 OR user input to Chain ID field
-    const [cosmosChainId, setCosmosChainId] = useState(defaultChain.cosmosChainId) // althea_417834-3 OR user input to Cosmos Chain ID field
+    const [chainId, setChainId] = useState(defaultChain.chainId) // 999999 OR user input to Chain ID field
+    const [cosmosChainId, setCosmosChainId] = useState(defaultChain.cosmosChainId) // gravity-test-1 OR user input to Cosmos Chain ID field
     const [fee, setFee] = useState(defaultFee.amount) // defaultFee.amount OR user input to Fee field
+    const [bridgeFee, setBridgeFee] = useState(defaultFee.amount) // defaultFee.amount OR user input to Bridge Fee field
+    const [chainFee, setChainFee] = useState(defaultFee.amount) // defaultFee.amount OR user input to Chain Fee field
     const [gas, setGas] = useState(defaultFee.gas) // defaultFee.gas OR user input to Gas field
     const [memo, setMemo] = useState("") // a string from the Memo field
-    const [account, setAccount] = useState("") // The user's fetched MM account address converted from 0x... to althea1...
+    const [to, setTo] = useState("") // a string like 'gravity1...' from the To field
+    const [amount, setAmount] = useState("") // an integer amount from the Amount field
+    const [denom, setDenom] = useState("ugraviton") // the denom to send to eth
+    const [account, setAccount] = useState("") // The user's fetched MM account address converted from 0x... to gravity1...
     const [accountInfo, setAccountInfo] = useState({}) // More info about the user's account like sequence pubkey and account number
     const [currPubkey, setCurrPubkey] = useState("") // The pubkey is not reliable so we fetch it from MM
 
     function onSubmit() {
-        const { context, tx } = createEIP712Params(account, accountInfo.sequence, accountInfo.account_number, currPubkey, fee, gas, chainId, cosmosChainId, memo);
+        const { context, tx } = createEIP712Params(account, accountInfo.sequence, accountInfo.account_number, currPubkey, fee, bridgeFee, chainFee, gas, chainId, cosmosChainId, memo, to, amount);
         SignEIP712CosmosTx(context, tx).then((signed) => {
-            BroadcastEIP712Tx(signed).then((res) => {
+            console.log("Submitting signed transaction: ", JSON.stringify(signed))
+            BroadcastEIP712Tx(signed, gravityNode).then((res) => {
                 console.log("Tx submitted:", JSON.stringify(res))
             })
         })
@@ -30,9 +41,7 @@ export default function SubmitMsgLiquify() {
         connectMetamask().then(() => {
             setMmConnected(true);
             const ethAccount = GetCurrAccount();
-            console.log("Eth account", ethAccount);
-            const account = ethToAlthea(ethAccount);
-            console.log("Althea account", account);
+            const account = ethToGravity(ethAccount);
             setAccount(account)
             fetchAccountInfo(account)
         });
@@ -45,9 +54,8 @@ export default function SubmitMsgLiquify() {
 
     const fetchAccountInfo = (address) => {
         console.log("Fetching account info for", address)
-        const data = getAccountInfo(address).then((data) => {
+        const data = getAccountInfo(address, gravityNode).then((data) => {
             if (data.account) {
-                console.log("Got data", JSON.stringify(data))
                 const type = data.account['@type'];
                 let base_account;
                 if (type.includes("EthAccount")) { // An EthAccount was returned
@@ -67,7 +75,6 @@ export default function SubmitMsgLiquify() {
             } else {
                 setAccountInfo(undefined)
             }
-
         })
     }
 
@@ -81,8 +88,8 @@ export default function SubmitMsgLiquify() {
                     <br />
                     {currPubkey ? (<label>Verified Pubkey:{currPubkey}</label>) : null}
                     {account ? (
-                        <label>Account: {account} | {altheaToEth(account)}</label>
-                    ):null}
+                        <label>Account: {account} | {gravityToEth(account)}</label>
+                    ) : null}
 
                     {mmConnected && currPubkey ? (
                         <div className='SubmitTx'>
@@ -95,7 +102,15 @@ export default function SubmitMsgLiquify() {
                             <br />
                             <label>Memo:<input value={memo} onChange={e => setMemo(e.target.value)} /></label>
                             <br />
+                            <label>To:<input value={to} onChange={e => setTo(e.target.value)} /></label>
+                            <br />
+                            <label>Amount:<input value={amount} onChange={e => setAmount(e.target.value)} /></label>
+                            <br />
                             <label>Fee:<input value={fee} onChange={e => setFee(e.target.value)} /></label>
+                            <br />
+                            <label>Bridge Fee:<input value={fee} onChange={e => setBridgeFee(e.target.value)} /></label>
+                            <br />
+                            <label>Chain Fee:<input value={fee} onChange={e => setChainFee(e.target.value)} /></label>
                             <br />
                             <button onClick={onSubmit}>Submit Tx</button>
                         </div>
@@ -109,17 +124,17 @@ export default function SubmitMsgLiquify() {
 }
 
 const defaultFee = {
-    amount: '4000000000000000',
-    denom: 'aalthea',
+    amount: '1',
+    denom: 'ugraviton',
     gas: '200000',
 }
 
 const defaultChain = {
-  chainId: 417834,
-  cosmosChainId: 'althea_417834-3',
+    chainId: 999999,
+    cosmosChainId: 'gravity-bridge-3',
 }
 
-function createEIP712Params(account, sequence, accountNumber, pubKey, feeAmount, gasAmount, chain, cosmosChainId, memo) {
+function createEIP712Params(account, sequence, accountNumber, pubKey, feeAmount, bridgeFee, chainFee, gasAmount, chain, cosmosChainId, memo, to, amount) {
     const sender = {
         accountAddress: account,
         sequence: sequence,
@@ -129,19 +144,23 @@ function createEIP712Params(account, sequence, accountNumber, pubKey, feeAmount,
     const fAmount = (feeAmount || defaultFee.amount);
     const gAmount = (gasAmount || defaultFee.gas);
 
-    const chainParam = {chainId: (chain || defaultChain.chainId), cosmosChainId: (cosmosChainId || defaultChain.cosmosChainId) }
+    const chainParam = { chainId: (chain || defaultChain.chainId), cosmosChainId: (cosmosChainId || defaultChain.cosmosChainId) }
 
     const txcontext = {
         chain: chainParam,
         sender,
-        fee: {amount: fAmount, denom: defaultFee.denom, gas: gAmount},
+        fee: { amount: fAmount, denom: defaultFee.denom, gas: gAmount },
         memo: (memo || ""),
     }
 
     const params = {
+        eth_dest: to,
         sender: account,
+        amount: amount,
+        denom: 'ugraviton',
+        bridge_fee: bridgeFee,
+        chain_fee: chainFee,
     }
-
-    const tx = createTxMsgLiquify(txcontext, params)
-    return {context: txcontext, tx: tx}
+    const tx = createTxMsgSendToEth(txcontext, params)
+    return { context: txcontext, tx: tx }
 }

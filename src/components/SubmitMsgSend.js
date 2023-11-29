@@ -1,16 +1,11 @@
 import {
-    createCosmosMsgSend,
-  createCosmosPayload,
-  createTxMsgSend,
-  wrapTypeToArray,
+    createTxMsgSend,
 } from '@althea-net/transactions'
 import React, { useState } from 'react';
 import { connectMetamask, metamaskInstalled, verifyPubKey, GetCurrPubkey, GetCurrAccount, SignEIP712CosmosTx } from '../services/metamask';
 import { BroadcastEIP712Tx } from '../services/broadcast';
-import getAccountInfo, { altheaToEth, ethToAlthea } from '../services/accountInfo';
-import { JSONOptions, convertProtoMessagesToAmino, createMicrotxAminoConverters } from '@althea-net/proto';
-import { MsgSend } from '@althea-net/proto/dist/proto/cosmos/bank/tx';
-import { AminoJSONOptions, convertProtoValueToMessage } from '@althea-net/proto/dist/amino';
+import getAccountInfo from '../services/accountInfo';
+import { altheaToEth, ethToAlthea } from '@althea-net/address-converter';
 
 // Presents info about the user's metamask account and allows Bank MsgSend EIP-712 submission. Currently the transaction confirmation is only output to console!
 export default function SubmitMsgSend() {
@@ -29,6 +24,7 @@ export default function SubmitMsgSend() {
     function onSubmit() {
         const { context, tx } = createEIP712Params(account, accountInfo.sequence, accountInfo.account_number, currPubkey, fee, gas, chainId, cosmosChainId, memo, to, amount);
         SignEIP712CosmosTx(context, tx).then((signed) => {
+            console.log("Submitting signed transaction: ", JSON.stringify(signed))
             BroadcastEIP712Tx(signed).then((res) => {
                 console.log("Tx submitted:", JSON.stringify(res))
             })
@@ -88,7 +84,7 @@ export default function SubmitMsgSend() {
                     {currPubkey ? (<label>Verified Pubkey:{currPubkey}</label>) : null}
                     {account ? (
                         <label>Account: {account} | {altheaToEth(account)}</label>
-                    ):null}
+                    ) : null}
 
                     {mmConnected && currPubkey ? (
                         <div className='SubmitTx'>
@@ -125,8 +121,8 @@ const defaultFee = {
 }
 
 const defaultChain = {
-  chainId: 417834,
-  cosmosChainId: 'althea_417834-3',
+    chainId: 417834,
+    cosmosChainId: 'althea_417834-3',
 }
 
 function createEIP712Params(account, sequence, accountNumber, pubKey, feeAmount, gasAmount, chain, cosmosChainId, memo, to, amount) {
@@ -139,12 +135,12 @@ function createEIP712Params(account, sequence, accountNumber, pubKey, feeAmount,
     const fAmount = (feeAmount || defaultFee.amount);
     const gAmount = (gasAmount || defaultFee.gas);
 
-    const chainParam = {chainId: (chain || defaultChain.chainId), cosmosChainId: (cosmosChainId || defaultChain.cosmosChainId) }
+    const chainParam = { chainId: (chain || defaultChain.chainId), cosmosChainId: (cosmosChainId || defaultChain.cosmosChainId) }
 
     const txcontext = {
         chain: chainParam,
         sender,
-        fee: {amount: fAmount, denom: defaultFee.denom, gas: gAmount},
+        fee: { amount: fAmount, denom: defaultFee.denom, gas: gAmount },
         memo: (memo || ""),
     }
 
@@ -154,5 +150,12 @@ function createEIP712Params(account, sequence, accountNumber, pubKey, feeAmount,
         denom: 'aalthea',
     }
     const tx = createTxMsgSend(txcontext, params)
-    return {context: txcontext, tx: tx}
+    return { context: txcontext, tx: tx }
 }
+
+// function createMultipleMsgSendParams(context, params) {
+//     const typedData = createEIP712MsgSend(context, params)
+//     const cosmosMsg = createCosmosMsgSend(context, params)
+//     const cosmosMsg2 = createCosmosMsgSend(context, params)
+//     return createTransactionPayload(context, typedData, [cosmosMsg, cosmosMsg2])
+// }

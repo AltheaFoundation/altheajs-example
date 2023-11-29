@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import SubmitMsgSend from './SubmitMsgSend';
 import SubmitMsgLiquify from './SubmitMsgLiquify'
 import AccountInfo from './AccountInfo'
+import GravityMsgSend from './GravityMsgSend';
+import GravityMsgSendToEth from './GravityMsgSendToEth';
 
 const Tab = styled.button`
     font-size: 15px;
@@ -14,8 +16,8 @@ const Tab = styled.button`
     border: 0;
     outline: 0;
 
-    ${({ active }) => 
-        active && `
+    ${({ selected }) =>
+        selected && `
         opacity:1;
     `}
 }
@@ -25,7 +27,7 @@ const ButtonGroup = styled.div`
     display:flex;
 `;
 
-const types = ['Bank Send', 'Microtx Liquify', 'Account Info'];
+const types = ['Bank Send', 'Microtx Liquify', 'Account Info', 'Gravity Send', 'Gravity SendToEth'];
 
 export default function Tabs() {
     const [active, setActive] = useState(types[0])
@@ -33,14 +35,16 @@ export default function Tabs() {
         <>
             <ButtonGroup>
                 {types.map(type => (
-                    <Tab key={type} active={active ===type} onClick={() => setActive(type)}>
+                    <Tab key={type} selected={active === type} onClick={() => setActive(type)}>
                         {type}
                     </Tab>
                 ))}
             </ButtonGroup>
-            {active === types[0] ? (<SubmitMsgSend />): (null)}
-            {active === types[1] ? (<SubmitMsgLiquify />): (null)}
-            {active === types[2] ? (<AccountInfo />): (null)}
+            {active === types[0] ? (<SubmitMsgSend />) : (null)}
+            {active === types[1] ? (<SubmitMsgLiquify />) : (null)}
+            {active === types[2] ? (<AccountInfo />) : (null)}
+            {active === types[3] ? (<GravityMsgSend />) : (null)}
+            {active === types[4] ? (<GravityMsgSendToEth />) : (null)}
         </>
     )
 }
