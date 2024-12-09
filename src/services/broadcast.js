@@ -17,7 +17,7 @@ export async function BroadcastEIP712Tx(signedTx, optionalEndpoint) {
     if (optionalEndpoint !== undefined) {
         broadcastEndpoint = `${optionalEndpoint}${generateEndpointBroadcast()}`
     } else {
-        broadcastEndpoint = `${nodeurl}${generateEndpointBroadcast}`
+        broadcastEndpoint = `${nodeurl}${generateEndpointBroadcast()}`
     }
 
     const broadcastPost = await fetch(
